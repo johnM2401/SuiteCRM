@@ -40,7 +40,7 @@ if(!defined('sugarEntry') || !sugarEntry) die('Not A Valid Entry Point');
 
 require_once('include/SugarFolders/SugarFolders.php');
 
-global $current_user;
+global $current_user, $mod_strings;
 
 $focus = new InboundEmail();
 if(!empty($_REQUEST['record'])) {
@@ -138,6 +138,19 @@ if ( $focus->isMailBoxTypeCreateCase() || ($focus->mailbox_type == 'createcase' 
 {
 	$stored_options['distrib_method'] = (isset($_REQUEST['distrib_method'])) ? $_REQUEST['distrib_method'] : "";
 	$stored_options['create_case_email_template'] = (isset($_REQUEST['create_case_template_id'])) ? $_REQUEST['create_case_template_id'] : "";
+    switch($stored_options['distrib_method']){
+        case 'singleUser':
+            $stored_options['distribution_user_name'] = !empty($_REQUEST['distribution_user_name']) ? $_REQUEST['distribution_user_name'] : '';
+            $stored_options['distribution_user_id'] = !empty($_REQUEST['distribution_user_id']) ? $_REQUEST['distribution_user_id'] : '';
+            break;
+        case 'roundRobin':
+        case 'leastBusy':
+        case 'random':
+            $stored_options['distribution_options'] = !empty($_REQUEST['distribution_options']) ? $_REQUEST['distribution_options'] : '';
+            break;
+        default:
+            break;
+    }
 } // if
 $storedOptions['folderDelimiter'] = $delimiter;
 
@@ -203,6 +216,123 @@ $GLOBALS['sugar_config']['disable_team_access_check'] = TRUE;
 
 $focus->save();
 
+
+
+
+// Folders
+$foldersFound = $focus->db->query('SELECT id FROM folders WHERE folders.id LIKE "'.$focus->id.'"');
+$foldersFoundRow = $focus->db->fetchRow($foldersFound);
+$sf = new SugarFolder();
+if(empty($foldersFoundRow)) {
+    // Create Folders
+    $focusUser = $current_user;
+    $params = array(
+        // Inbox
+        "inbound" => array(
+            'name' => $focus->mailbox . ' ('.$focus->name.')',
+            'folder_type' => "inbound",
+            'has_child' => 1,
+            'dynamic_query' => '',
+            'is_dynamic' => 1,
+            'created_by' => $focusUser->id,
+            'modified_by' => $focusUser->id,
+        ),
+        // My Drafts
+        "draft" => array(
+            'name' => $mod_strings['LNK_MY_DRAFTS'] . ' ('.$stored_options['sentFolder'].')',
+            'folder_type' => "draft",
+            'has_child' => 0,
+            'dynamic_query' => '',
+            'is_dynamic' => 1,
+            'created_by' => $focusUser->id,
+            'modified_by' => $focusUser->id,
+        ),
+        // Sent Emails
+        "sent" => array(
+            'name' => $mod_strings['LNK_SENT_EMAIL_LIST'] . ' ('.$stored_options['sentFolder'].')',
+            'folder_type' => "sent",
+            'has_child' => 0,
+            'dynamic_query' => '',
+            'is_dynamic' => 1,
+            'created_by' => $focusUser->id,
+            'modified_by' => $focusUser->id,
+        ),
+        // Archived Emails
+        "archived" => array(
+            'name' => $mod_strings['LBL_LIST_TITLE_MY_ARCHIVES'],
+            'folder_type' => "archived",
+            'has_child' => 0,
+            'dynamic_query' => '',
+            'is_dynamic' => 1,
+            'created_by' => $focusUser->id,
+            'modified_by' => $focusUser->id,
+        ),
+    );
+
+
+    require_once("include/SugarFolders/SugarFolders.php");
+
+    $parent_id = '';
+
+
+    foreach ($params as $type => $type_params) {
+        if ($type == "inbound") {
+
+            $folder = new SugarFolder();
+            foreach ($params[$type] as $key => $val) {
+                $folder->$key = $val;
+            }
+
+            $folder->new_with_id = false;
+            $folder->id = $focus->id;
+            $folder->save();
+
+            $parent_id = $folder->id;
+        } else {
+            $params[$type]['parent_folder'] = $parent_id;
+
+            $folder = new SugarFolder();
+            foreach ($params[$type] as $key => $val) {
+                $folder->$key = $val;
+            }
+
+            $folder->save();
+        }
+    }
+} else {
+    // Update folders
+    require_once("include/SugarFolders/SugarFolders.php");
+    $foldersFound = $focus->db->query('SELECT * FROM folders WHERE folders.id LIKE "'.$focus->id.'" OR '.
+        'folders.parent_folder LIKE "'.$focus->id.'"');
+    while($row = $focus->db->fetchRow($foldersFound)) {
+        $name = '';
+        switch ($row['folder_type'])
+        {
+            case 'inbound':
+                $name = $focus->mailbox . ' ('.$focus->name.')';
+                break;
+            case 'draft':
+                $name = $mod_strings['LNK_MY_DRAFTS'] . ' ('.$stored_options['sentFolder'].')';
+                break;
+            case 'sent':
+                $name = $mod_strings['LNK_SENT_EMAIL_LIST'] . ' ('.$stored_options['sentFolder'].')';
+                break;
+            case 'archived':
+                $name = $mod_strings['LBL_LIST_TITLE_MY_ARCHIVES'];
+                break;
+        }
+
+        $folder = new SugarFolder();
+        $folder->retrieve($row['id']);
+        $folder->name = $name;
+        $folder->save();
+    }
+}
+
+
+
+
+
 //Reset the value so no other saves are affected.
 $GLOBALS['sugar_config']['disable_team_access_check'] = $previousTeamAccessCheck;
 
@@ -257,8 +387,13 @@ if($_REQUEST['module'] == 'Campaigns'){
 
     $GLOBALS['log']->debug("Saved record with id of ".$return_id);
 
+    $redirectUrl = "Location: index.php?module=$return_module&action=$return_action&record=$return_id$edit";
 
-    header("Location: index.php?module=$return_module&action=$return_action&record=$return_id$edit$error");
+    if(isset($error) && $error) {
+        $redirectUrl .= $error;
+    }
+
+    header($redirectUrl);
 }
 
 /**

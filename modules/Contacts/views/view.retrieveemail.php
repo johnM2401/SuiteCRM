@@ -40,22 +40,22 @@
 
 /**
  * ContactsViewRetrieveEmailUsername.php
- * 
+ *
  * This class overrides SugarView and provides an implementation for the RetrieveEmailUsername
  * method used for returning the information about an email address
- * 
+ *
  * @author Collin Lee
  * */
- 
+
 require_once('include/MVC/View/SugarView.php');
 require_once("include/JSON.php");
 
 class ContactsViewRetrieveEmail extends SugarView {
-	
- 	function ContactsViewRetrieveEmail(){
- 		parent::SugarView();
+
+ 	function __construct(){
+ 		parent::__construct();
  	}
- 	
+
  	function process() {
 		$this->display();
  	}
@@ -73,8 +73,8 @@ class ContactsViewRetrieveEmail extends SugarView {
 				$data['email'] = '';
 			}
         }
-		$json = new JSON(JSON_LOOSE_TYPE);
-		echo $json->encode($data); 
- 	}	
+		$json = new JSON();
+		echo $json->encode($data);
+ 	}
 }
 ?>

@@ -1,14 +1,27 @@
-##SuiteCRM 7.2.2
+## SuiteCRM 7.9
+
+[![Build Status](https://travis-ci.org/salesagility/SuiteCRM.svg?branch=hotfix)](https://travis-ci.org/salesagility/SuiteCRM)
+
 
 ### What's in this repository ###
 
-This is the git repository for the SuiteCRM project, the fully open source & supercharged fork of SugarCRM Community Edition.
+This is the git repository for the SuiteCRM project, the award-winning, enterprise-class open source CRM.
 
 This repository has been created to allow community members to collaborate and contribute to the project, helping to develop the SuiteCRM ecosystem.
 
 ### Contributing to the project ###
 
-#####Important: Please read before developing code intended for inclusion in the SuiteCRM project.#####
+#### Security ####
+
+We take Security seriously here at SuiteCRM so if you have discovered a security risk report it by
+emailing security@suitecrm.com. This will be delivered to the product team who handle security issues.
+Please don't disclose security bugs publicly until they have been handled by the security team.
+
+Your email will be acknowledged within 24 hours during the business week (Mon - Fri), and you’ll receive a more
+detailed response to your email within 72 hours during the business week (Mon - Fri) indicating the next steps in
+handling your report.
+
+##### Important: Please read before developing code intended for inclusion in the SuiteCRM project. #####
 
 Please read and sign the following [contributor agreement][cont_agrmt]
 
@@ -18,7 +31,21 @@ The Contributor Agreement only needs to be signed once for all pull requests and
 
 Once signed and confirmed, any pull requests will be considered for inclusion in the SuiteCRM project.
 
-### Helpful links for the community###
+
+### Translations ###
+SuiteCRM in your language: [ Download and install language packs from][suitecrm_languages]
+
+[suitecrm_languages]: https://crowdin.com/project/suitecrmtranslations
+
+
+### Code of Conduct ###
+
+See our [Code of Conduct][code_of_conduct] on our Wiki.
+
+[code_of_conduct]: https://suitecrm.com/wiki/index.php/Contributing_to_SuiteCRM#Code_of_Conduct
+
+
+### Helpful links for the community ###
 
 The following links offer various ways to view, contribute and collaborate to the SuiteCRM project:
 
@@ -29,17 +56,21 @@ The following links offer various ways to view, contribute and collaborate to th
 + [SuiteCRM Partners - Our partner section where partners of SuiteCRM can be viewed][suitecrm_partners]
 + [SuiteCRM Extensions Directory - An extensions directory where community members can submit extensions built for SuiteCRM][suitecrm_ext]
 
-[suitecrm_demo]: http://suitecrm.com/index.php?option=com_users&view=registration&Itemid=1235
-[suitecrm_forums]: http://suitecrm.com/index.php?option=com_kunena&view=category&Itemid=1137&layout=list
-[suitecrm_docs]: http://suitecrm.com/index.php?option=com_wrapper&view=wrapper&Itemid=1383
-[suitecrm_partners]: http://suitecrm.com/index.php?option=com_content&view=article&id=170&Itemid=1172
-[suitecrm_ext]: http://suitecrm.com/index.php?option=com_mtree&view=listcats&cat_id=76&Itemid=1225
+[suitecrm_demo]: https://suitecrm.com/demo
+[suitecrm_forums]: https://suitecrm.com/forum/index
+[suitecrm_docs]: https://suitecrm.com/wiki
+[suitecrm_partners]: https://suitecrm.com/community/partners
+[suitecrm_ext]: https://store.suitecrm.com/
 
 ### Development Roadmap ###
 
-[ View the Roadmap here and get involved][suitecrm_roadmap]
+[ View the Community Roadmap here and get involved][suitecrm_roadmap]
 
-[suitecrm_roadmap]: http://suitecrm.com/index.php?option=com_devroadmap&view=devroadmap&id=&Itemid=1389
+[suitecrm_roadmap]: https://suitecrm.com/community/roadmap
+
+[More detailed SuiteCRM Community LTS Roadmap][suitecrm_detailed_roadmap]
+
+[suitecrm_detailed_roadmap]: https://suitecrm.com/lts/
 
 ### Support & Licensing ###
 

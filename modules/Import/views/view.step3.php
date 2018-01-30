@@ -160,9 +160,9 @@ class ImportViewStep3 extends ImportView
             $this->_showImportError($mod_strings['LBL_NO_LINES'],$_REQUEST['import_module'],'Step2');
             return;
         }
-        
+
         // save first row to send to step 4
-        $this->ss->assign("FIRSTROW", base64_encode(serialize($rows[0])));
+        $this->ss->assign("FIRSTROW", htmlentities(json_encode($rows[0])));
 
         // Now build template
         $this->ss->assign("TMP_FILE", $uploadFileName );
@@ -518,6 +518,7 @@ class ImportViewStep3 extends ImportView
                     background: transparent url('index.php?entryPoint=getImage&themeName=Sugar&themeName=Sugar&imageName=sugar-yui-sprites.png') no-repeat 0 -90px;
                     padding-left: 10px;
                     cursor: pointer;
+		    display: inline; 
                 }
 
                 span.expand{

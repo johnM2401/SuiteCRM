@@ -44,9 +44,24 @@ require_once('modules/Users/UserViewHelper.php');
 
 class UsersViewEdit extends ViewEdit {
 var $useForSubpanel = true;
- 	function UsersViewEdit(){
- 		parent::ViewEdit();
+ 	function __construct(){
+ 		parent::__construct();
  	}
+
+    /**
+     * @deprecated deprecated since version 7.6, PHP4 Style Constructors are deprecated and will be remove in 7.8, please update your code, use __construct instead
+     */
+    function UsersViewEdit(){
+        $deprecatedMessage = 'PHP4 Style Constructors are deprecated and will be remove in 7.8, please update your code';
+        if(isset($GLOBALS['log'])) {
+            $GLOBALS['log']->deprecated($deprecatedMessage);
+        }
+        else {
+            trigger_error($deprecatedMessage, E_USER_DEPRECATED);
+        }
+        self::__construct();
+    }
+
 
     function preDisplay() {
         $this->fieldHelper = new UserViewHelper($this->ss, $this->bean, 'EditView');
@@ -222,6 +237,16 @@ EOD
         if(!empty($_REQUEST['scrollToCal'])){
             $this->ss->assign('scroll_to_cal', true);
         }
+
+
+        require_once('modules/Emails/EmailUI.php');
+        $efocus = new Email();
+        $efocus->email2init();
+        //$efocus->et->preflightUser($current_user);
+        $out = $efocus->et->displayEmailFrame('modules/Users/_baseEmail.tpl');
+        echo $out;
+        echo "<script>var composePackage = null;</script>";
+
         $this->ev->process($processSpecial,$processFormName);
 
 		echo $this->ev->display($this->showTitle);

@@ -44,8 +44,23 @@
 class SugarFieldHandler
 {
 
-    function SugarFieldHandler() {
+    function __construct() {
     }
+
+    /**
+     * @deprecated deprecated since version 7.6, PHP4 Style Constructors are deprecated and will be remove in 7.8, please update your code, use __construct instead
+     */
+    function SugarFieldHandler(){
+        $deprecatedMessage = 'PHP4 Style Constructors are deprecated and will be remove in 7.8, please update your code';
+        if(isset($GLOBALS['log'])) {
+            $GLOBALS['log']->deprecated($deprecatedMessage);
+        }
+        else {
+            trigger_error($deprecatedMessage, E_USER_DEPRECATED);
+        }
+        self::__construct();
+    }
+
 
     static function fixupFieldType($field) {
             switch($field) {
@@ -76,10 +91,11 @@ class SugarFieldHandler
 
     /**
      * return the singleton of the SugarField
-     *
-     * @param field string field type
+     * @param $field
+     * @param bool $returnNullIfBase
+     * @return mixed
      */
-    static function getSugarField($field, $returnNullIfBase=false) {
+    public static function getSugarField($field, $returnNullIfBase=false) {
         static $sugarFieldObjects = array();
 
         $field = self::fixupFieldType($field);

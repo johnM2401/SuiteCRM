@@ -53,15 +53,6 @@ if(!defined('sugarEntry') || !sugarEntry) die('Not A Valid Entry Point');
  */
 function get_message_scope_dom($campaign_id, $campaign_name,$db=null, $mod_strings=array()) {
 
-    //find prospect list attached to this campaign..
-    $query =  "SELECT prospect_list_id, prospect_lists.name ";
-    $query .= "FROM prospect_list_campaigns ";
-    $query .= "INNER join prospect_lists on prospect_lists.id = prospect_list_campaigns.prospect_list_id ";
-    $query .= "WHERE prospect_lists.deleted = 0 ";
-    $query .= "AND prospect_list_campaigns.deleted=0 ";
-    $query .= "AND campaign_id='".$campaign_id."'";
-    $query.=" and prospect_lists.list_type not like 'exempt%'";
-
     if (empty($db)) {
         $db = DBManagerFactory::getInstance();
     }
@@ -69,6 +60,15 @@ function get_message_scope_dom($campaign_id, $campaign_name,$db=null, $mod_strin
         global $current_language;
         $mod_strings = return_module_language($current_language, 'Campaigns');
     }
+
+    //find prospect list attached to this campaign..
+    $query =  "SELECT prospect_list_id, prospect_lists.name ";
+    $query .= "FROM prospect_list_campaigns ";
+    $query .= "INNER join prospect_lists on prospect_lists.id = prospect_list_campaigns.prospect_list_id ";
+    $query .= "WHERE prospect_lists.deleted = 0 ";
+    $query .= "AND prospect_list_campaigns.deleted=0 ";
+    $query .= "AND campaign_id='". $db->quote($campaign_id)."'";
+    $query.=" and prospect_lists.list_type not like 'exempt%'";
 
     //add campaign to the result array.
     //$return_array[$campaign_id]= $campaign_name . ' (' . $mod_strings['LBL_DEFAULT'] . ')';
@@ -98,9 +98,9 @@ function get_campaign_mailboxes(&$emails, $get_name=true) {
     	if($get_name) {
     		$return_array[$row['id']] = $row['name'];
     	} else {
-        	$return_array[$row['id']]= InboundEmail::get_stored_options('from_name',$row['name'],$row['stored_options']);
+        	$return_array[$row['id']]= InboundEmail::get_stored_options_static('from_name',$row['name'],$row['stored_options']);
     	}
-        $emails[$row['id']]=InboundEmail::get_stored_options('from_addr','nobody@example.com',$row['stored_options']);
+        $emails[$row['id']]=InboundEmail::get_stored_options_static('from_addr','nobody@example.com',$row['stored_options']);
     }
 
     if (empty($return_array)) $return_array=array(''=>'');
@@ -127,19 +127,35 @@ function get_campaign_mailboxes_with_stored_options() {
 	return $ret;
 }
 
-function log_campaign_activity($identifier, $activity, $update=true, $clicked_url_key=null) {
+function get_campaign_mailboxes_with_stored_options_outbound() {
+	$ret = array();
+
+    if(!class_exists('OutboundEmail')) {
+        require('modules/OutboundEmail/OutboundEmail.php');
+    }
+
+    $q = "SELECT * FROM outbound_email WHERE deleted='0'";
+
+    $db = DBManagerFactory::getInstance();
+
+    $r = $db->query($q);
+
+    while($a = $db->fetchByAssoc($r)) {
+        $ret[$a['id']] = $a;
+    }
+	return $ret;
+}
+
+function log_campaign_activity($identifier, $activity, $update = true, $clicked_url_key = null) {
 
     $return_array = array();
 
     $db = DBManagerFactory::getInstance();
 
-
-
-     //check to see if the identifier has been replaced with Banner string
-    if($identifier == 'BANNER' && isset($clicked_url_key)  && !empty($clicked_url_key))
-    {
+    //check to see if the identifier has been replaced with Banner string
+    if ($identifier == 'BANNER' && isset($clicked_url_key) && !empty($clicked_url_key)) {
         // create md5 encrypted string using the client ip, this will be used for tracker id purposes
-        $enc_id = 'BNR'.md5($_SERVER['REMOTE_ADDR']);
+        $enc_id = 'BNR' . md5($_SERVER['REMOTE_ADDR']);
 
         //default the identifier to ip address
         $identifier = $enc_id;
@@ -147,140 +163,191 @@ function log_campaign_activity($identifier, $activity, $update=true, $clicked_ur
         //if user has chosen to not use this mode of id generation, then replace identifier with plain guid.
         //difference is that guid will generate a new campaign log for EACH CLICK!!
         //encrypted generation will generate 1 campaign log and update the hit counter for each click
-        if(isset($sugar_config['campaign_banner_id_generation'])  && $sugar_config['campaign_banner_id_generation'] != 'md5'){
+        if (isset($sugar_config['campaign_banner_id_generation']) && $sugar_config['campaign_banner_id_generation'] != 'md5') {
             $identifier = create_guid();
         }
 
         //retrieve campaign log.
-        $trkr_query = "select * from campaign_log where target_tracker_key='$identifier' and related_id = '$clicked_url_key'";
-        $current_trkr=$db->query($trkr_query);
-        $row=$db->fetchByAssoc($current_trkr);
+        // quote variable first
+        $identifierQuoted = $db->quote($identifier);
+        $clickedUrlKeyQuoted = $db->quote($clicked_url_key);
+        $trkr_query = "select * from campaign_log where target_tracker_key='$identifierQuoted' and related_id = '$clickedUrlKeyQuoted'";
+        $current_trkr = $db->query($trkr_query);
+        $row = $db->fetchByAssoc($current_trkr);
 
         //if campaign log is not retrieved (this is a new ip address or we have chosen to create
         //unique entries for each click
-        if($row==null  || empty($row)){
+        if ($row == null || empty($row)) {
 
 
-                //retrieve campaign id
-                $trkr_query = "select ct.campaign_id from campaign_trkrs ct, campaigns c where c.id = ct.campaign_id and ct.id = '$clicked_url_key'";
-                $current_trkr=$db->query($trkr_query);
-                $row=$db->fetchByAssoc($current_trkr);
+            //retrieve campaign id
+            $clickedUrlKeyQuoted = $db->quote($clicked_url_key);
+            $trkr_query = "select ct.campaign_id from campaign_trkrs ct, campaigns c where c.id = ct.campaign_id and ct.id = '$clickedUrlKeyQuoted'";
+            $current_trkr = $db->query($trkr_query);
+            $row = $db->fetchByAssoc($current_trkr);
 
 
-                //create new campaign log with minimal info.  Note that we are creating new unique id
-                //as target id, since we do not link banner/web campaigns to any users
+            //create new campaign log with minimal info.  Note that we are creating new unique id
+            //as target id, since we do not link banner/web campaigns to any users
 
-                $data['target_id']="'" . create_guid() . "'";
-                $data['target_type']= "'Prospects'";
-                $data['id']="'" . create_guid() . "'";
-                $data['campaign_id']="'" . $row['campaign_id'] . "'";
-                $data['target_tracker_key']="'" . $identifier . "'";
-                $data['activity_type']="'" .  $activity . "'";
-                $data['activity_date']="'" . TimeDate::getInstance()->nowDb() . "'";
-                $data['hits']=1;
-                $data['deleted']=0;
-                if (!empty($clicked_url_key)) {
-                    $data['related_id']="'".$clicked_url_key."'";
-                    $data['related_type']="'".'CampaignTrackers'."'";
-                }
+            $data['target_id'] = "'" . create_guid() . "'";
+            $data['target_type'] = "'Prospects'";
+            $data['id'] = "'" . create_guid() . "'";
+            $data['campaign_id'] = "'" . $row['campaign_id'] . "'";
+            $data['target_tracker_key'] = "'" . $identifier . "'";
+            $data['activity_type'] = "'" . $activity . "'";
+            $data['activity_date'] = "'" . TimeDate::getInstance()->nowDb() . "'";
+            $data['hits'] = 1;
+            $data['deleted'] = 0;
+            if (!empty($clicked_url_key)) {
+                $data['related_id'] = "'" . $clicked_url_key . "'";
+                $data['related_type'] = "'" . 'CampaignTrackers' . "'";
+            }
 
-                //values for return array..
-                $return_array['target_id']=$data['target_id'];
-                $return_array['target_type']=$data['target_type'];
+            //values for return array..
+            $return_array['target_id'] = $data['target_id'];
+            $return_array['target_type'] = $data['target_type'];
 
-                //create insert query for new campaign log
-                $insert_query="INSERT into campaign_log (" . implode(",",array_keys($data)) . ")";
-                $insert_query.=" VALUES  (" . implode(",",array_values($data)) . ")";
-                $db->query($insert_query);
-            }else{
+            //create insert query for new campaign log
+            // quote variable first
+            $dataArrayKeys = array_keys($data);
+            $dataArrayKeysQuoted = array();
+            foreach ($dataArrayKeys as $dataArrayKey) {
+                $dataArrayKeysQuoted[] = $db->quote($dataArrayKey);
+            }
+            $dataArrayKeysQuotedImplode = implode(', ', $dataArrayKeysQuoted);
 
-                //campaign log already exists, so just set the return array and update hits column
-                $return_array['target_id']= $row['target_id'];
-                $return_array['target_type']= $row['target_type'];
-                $query1="update campaign_log set hits=hits+1 where id='{$row['id']}'";
-                $current=$db->query($query1);
+            $insert_query = "INSERT into campaign_log (" . $dataArrayKeysQuotedImplode . ")";
 
+            // quote variable first
+            $dataArrayValues = array_values($data);
+            $dataArrayValuesQuoted = array();
+            foreach ($dataArrayValues as $dataArrayValue) {
+                $dataArrayValuesQuoted[] = $db->quote($dataArrayValue);
+            }
+            $dataArrayValuesQuotedImplode = implode(', ', $dataArrayValuesQuoted);
 
-           }
+            $insert_query .= " VALUES  (" . $dataArrayValuesQuotedImplode . ")";
+
+            $db->query($insert_query);
+        } else {
+
+            //campaign log already exists, so just set the return array and update hits column
+            $return_array['target_id'] = $row['target_id'];
+            $return_array['target_type'] = $row['target_type'];
+
+            // quote variable first
+            $rowIdQuoted = $db->quote($row['id']);
+            $query1 = "update campaign_log set hits=hits+1 where id='$rowIdQuoted'";
+
+            $current = $db->query($query1);
+        }
 
         //return array and exit
         return $return_array;
-
     }
 
 
 
-    $query1="select * from campaign_log where target_tracker_key='$identifier' and activity_type='$activity'";
+    // quote variable first
+    $identifierQuoted = $db->quote($identifier);
+    $activityQuoted = $db->quote($activity);
+    $query1 = "select * from campaign_log where target_tracker_key='$identifierQuoted' and activity_type='$activityQuoted'";
     if (!empty($clicked_url_key)) {
-        $query1.=" AND related_id='$clicked_url_key'";
+        // quote variable first
+        $clickedUrlKeyQuoted = $db->quote($clicked_url_key);
+        $query1 .= " AND related_id='$clickedUrlKeyQuoted'";
     }
-    $current=$db->query($query1);
-    $row=$db->fetchByAssoc($current);
+    $current = $db->query($query1);
+    $row = $db->fetchByAssoc($current);
 
-        if ($row==null) {
-            $query="select * from campaign_log where target_tracker_key='$identifier' and activity_type='targeted'";
-            $targeted=$db->query($query);
-            $row=$db->fetchByAssoc($targeted);
+    if ($row == null) {
+        // quote variable first
+        $identifierQuoted = $db->quote($identifier);
+        $query = "select * from campaign_log where target_tracker_key='$identifierQuoted' and activity_type='targeted'";
+        $targeted = $db->query($query);
+        $row = $db->fetchByAssoc($targeted);
 
-            //if activity is removed and target type is users, then a user is trying to opt out
-            //of emails.  This is not possible as Users Table does not have opt out column.
-            if ($row  && (strtolower($row['target_type']) == 'users' &&  $activity == 'removed' )) {
-                $return_array['target_id']= $row['target_id'];
-                $return_array['target_type']= $row['target_type'];
-                return $return_array;
+        //if activity is removed and target type is users, then a user is trying to opt out
+        //of emails.  This is not possible as Users Table does not have opt out column.
+        if ($row && (strtolower($row['target_type']) == 'users' && $activity == 'removed' )) {
+            $return_array['target_id'] = $row['target_id'];
+            $return_array['target_type'] = $row['target_type'];
+            return $return_array;
+        } elseif ($row) {
+            $data['id'] = "'" . create_guid() . "'";
+            $data['campaign_id'] = "'" . $row['campaign_id'] . "'";
+            $data['target_tracker_key'] = "'" . $identifier . "'";
+            $data['target_id'] = "'" . $row['target_id'] . "'";
+            $data['target_type'] = "'" . $row['target_type'] . "'";
+            $data['activity_type'] = "'" . $activity . "'";
+            $data['activity_date'] = "'" . TimeDate::getInstance()->nowDb() . "'";
+            $data['list_id'] = "'" . $row['list_id'] . "'";
+            $data['marketing_id'] = "'" . $row['marketing_id'] . "'";
+            $data['hits'] = 1;
+            $data['deleted'] = 0;
+            if (!empty($clicked_url_key)) {
+                $data['related_id'] = "'" . $clicked_url_key . "'";
+                $data['related_type'] = "'" . 'CampaignTrackers' . "'";
             }
-            elseif ($row){
-                $data['id']="'" . create_guid() . "'";
-                $data['campaign_id']="'" . $row['campaign_id'] . "'";
-                $data['target_tracker_key']="'" . $identifier . "'";
-                $data['target_id']="'" .  $row['target_id'] . "'";
-                $data['target_type']="'" .  $row['target_type'] . "'";
-                $data['activity_type']="'" .  $activity . "'";
-                $data['activity_date']="'" . TimeDate::getInstance()->nowDb() . "'";
-                $data['list_id']="'" .  $row['list_id'] . "'";
-                $data['marketing_id']="'" .  $row['marketing_id'] . "'";
-                $data['hits']=1;
-                $data['deleted']=0;
-                if (!empty($clicked_url_key)) {
-                    $data['related_id']="'".$clicked_url_key."'";
-                    $data['related_type']="'".'CampaignTrackers'."'";
-                }
-                //values for return array..
-                $return_array['target_id']=$row['target_id'];
-                $return_array['target_type']=$row['target_type'];
-                $insert_query="INSERT into campaign_log (" . implode(",",array_keys($data)) . ")";
-                $insert_query.=" VALUES  (" . implode(",",array_values($data)) . ")";
-                $db->query($insert_query);
+            //values for return array..
+            $return_array['target_id'] = $row['target_id'];
+            $return_array['target_type'] = $row['target_type'];
+            
+            // quote variable first
+            $dataArrayKeys = array_keys($data);
+            $dataArrayKeysQuoted = array();
+            foreach ($dataArrayKeys as $dataArrayKey) {
+                $dataArrayKeysQuoted[] = $db->quote($dataArrayKey);
             }
-        } else {
-
-            $return_array['target_id']= $row['target_id'];
-            $return_array['target_type']= $row['target_type'];
-
-            $query1="update campaign_log set hits=hits+1 where id='{$row['id']}'";
-            $current=$db->query($query1);
-
+            $dataArrayKeysQuotedImplode = implode(', ', $dataArrayKeysQuoted);
+            
+            $insert_query = "INSERT into campaign_log (" . $dataArrayKeysQuotedImplode . ")";
+            
+            // quote variable first
+            $dataArrayValues = array_values($data);
+            $dataArrayValuesQuoted = array();
+            foreach ($dataArrayValues as $dataArrayValue) {
+                $dataArrayValuesQuoted[] = $db->quote($dataArrayValue);
+            }
+            $dataArrayValuesQuotedImplode = implode(', ', $dataArrayValuesQuoted);
+            
+            $insert_query .= " VALUES  (" . $dataArrayValuesQuotedImplode . ")";
+            
+            $db->query($insert_query);
         }
-        //check to see if this is a removal action
-        if ($row  && $activity == 'removed' ) {
-            //retrieve campaign and check it's type, we are looking for newsletter Campaigns
-            $query = "SELECT campaigns.* FROM campaigns WHERE campaigns.id = '".$row['campaign_id']."' ";
-            $result = $db->query($query);
-            if(!empty($result))
-            {
-                $c_row = $db->fetchByAssoc($result);
+    } else {
 
-                //if type is newsletter, then add campaign id to return_array for further processing.
-                if(isset($c_row['campaign_type']) && $c_row['campaign_type'] == 'NewsLetter'){
-                    $return_array['campaign_id']=$c_row['id'];
-                }
-            }
-        }
-        return $return_array;
+        $return_array['target_id'] = $row['target_id'];
+        $return_array['target_type'] = $row['target_type'];
+
+        // quote variable first
+        $rowIdQuoted = $db->quote($row['id']);
+        $query1 = "update campaign_log set hits=hits+1 where id='$rowIdQuoted'";
+        $current = $db->query($query1);
     }
+    //check to see if this is a removal action
+    if ($row && $activity == 'removed') {
+        //retrieve campaign and check it's type, we are looking for newsletter Campaigns
+        //
+        // quote variable first
+        $rowCampaignIdQuoted = $db->quote($row['campaign_id']);
+        $query = "SELECT campaigns.* FROM campaigns WHERE campaigns.id = '" . $rowCampaignIdQuoted . "' ";
+        $result = $db->query($query);
+        
+        if (!empty($result)) {
+            $c_row = $db->fetchByAssoc($result);
 
+            //if type is newsletter, then add campaign id to return_array for further processing.
+            if (isset($c_row['campaign_type']) && $c_row['campaign_type'] == 'NewsLetter') {
+                $return_array['campaign_id'] = $c_row['id'];
+            }
+        }
+    }
+    return $return_array;
+}
 
- /**
+/**
      *
      * This method is deprecated
      * @deprecated 62_Joneses - June 24, 2011
@@ -317,6 +384,8 @@ function get_campaign_urls($campaign_id) {
     if (!empty($campaign_id)) {
 
         $db = DBManagerFactory::getInstance();
+
+        $campaign_id = $db->quote($campaign_id);
 
         $query1="select * from campaign_trkrs where campaign_id='$campaign_id' and deleted=0";
         $current=$db->query($query1);
@@ -713,11 +782,26 @@ function process_subscriptions($subscription_string_to_parse) {
      *This function will return a string to the newsletter wizard if campaign check
      *does not return 100% healthy.
      */
-    function diagnose()
+    function diagnose(&$errors = array(), &$links = array())
     {
         global $mod_strings;
         global $current_user;
-        $msg = " <table class='detail view small' width='100%'><tr><td> ".$mod_strings['LNK_CAMPAIGN_DIGNOSTIC_LINK']."</td></tr>";
+
+        $errors = array(
+            'mailbox1' => false,
+            'mailbox2' => false,
+            'admin' => false,
+            'scheduler1' => false,
+            'scheduler2' => false,
+        );
+
+        $links = array(
+            'scheduler' => false,
+            'email' => false,
+        );
+
+        $msg = " <table class='diagnose_messages detail view small' width='100%'><tr><td> ".$mod_strings['LNK_CAMPAIGN_DIGNOSTIC_LINK']."</td></tr>";
+
         //Start with email components
         //monitored mailbox section
         $focus = new Administration();
@@ -740,6 +824,7 @@ function process_subscriptions($subscription_string_to_parse) {
             //if array is empty, then increment health counter
             $email_health =$email_health +1;
             $msg  .=  "<tr><td ><font color='red'><b>". $mod_strings['LBL_MAILBOX_CHECK1_BAD']."</b></font></td></tr>";
+            $errors['mailbox1'] = $mod_strings['LBL_MAILBOX_CHECK1_BAD'];
         }
 
 
@@ -747,23 +832,27 @@ function process_subscriptions($subscription_string_to_parse) {
             //if "from_address" is the default, then set "bad" message and increment health counter
             $email_health =$email_health +1;
             $msg .= "<tr><td ><font color='red'><b> ".$mod_strings['LBL_MAILBOX_CHECK2_BAD']." </b></font></td></tr>";
+            $errors['mailbox2'] = $mod_strings['LBL_MAILBOX_CHECK2_BAD'];
         }else{
             //do nothing, address has been changed
         }
         //if health counter is above 1, then show admin link
         if($email_health>0){
             if (is_admin($current_user)){
-                $msg.="<tr><td ><a href='index.php?module=Campaigns&action=WizardEmailSetup";
+                $lnk = 'index.php?module=Campaigns&action=WizardEmailSetup';
+                $msg.="<tr><td ><a href='";
                 if(isset($_REQUEST['return_module'])){
-                    $msg.="&return_module=".$_REQUEST['return_module'];
+                    $lnk .="&return_module=".$_REQUEST['return_module'];
                 }
                 if(isset($_REQUEST['return_action'])){
-                    $msg.="&return_action=".$_REQUEST['return_action'];
+                    $lnk .="&return_action=".$_REQUEST['return_action'];
                 }
+                $msg .= $lnk;
+                $links['email'] = $lnk;
                 $msg.="'>".$mod_strings['LBL_EMAIL_SETUP_WIZ']."</a></td></tr>";
             }else{
                 $msg.="<tr><td >".$mod_strings['LBL_NON_ADMIN_ERROR_MSG']."</td></tr>";
-
+                $errors['admin'] = $mod_strings['LBL_NON_ADMIN_ERROR_MSG'];
             }
 
         }
@@ -798,18 +887,23 @@ function process_subscriptions($subscription_string_to_parse) {
         if($check_sched2 != 'found'){
             $sched_health =$sched_health +1;
             $msg.= "<tr><td><font color='red'><b>".$mod_strings['LBL_SCHEDULER_CHECK1_BAD']."</b></font></td></tr>";
+            $errors['scheduler1'] = $mod_strings['LBL_SCHEDULER_CHECK1_BAD'];
         }
         if($check_sched1 != 'found'){
             $sched_health =$sched_health +1;
             $msg.= "<tr><td><font color='red'><b>".$mod_strings['LBL_SCHEDULER_CHECK2_BAD']."</b></font></td></tr>";
+            $errors['scheduler2'] = $mod_strings['LBL_SCHEDULER_CHECK2_BAD'];
         }
         //if health counter is above 1, then show admin link
         if($sched_health>0){
             global $current_user;
             if (is_admin($current_user)){
-                $msg.="<tr><td ><a href='index.php?module=Schedulers&action=index'>".$mod_strings['LBL_SCHEDULER_LINK']."</a></td></tr>";
+                $link = 'index.php?module=Schedulers&action=index';
+                $msg.="<tr><td ><a href='$link'>".$mod_strings['LBL_SCHEDULER_LINK']."</a></td></tr>";
+                $links['scheduler'] = $link;
             }else{
                 $msg.="<tr><td >".$mod_strings['LBL_NON_ADMIN_ERROR_MSG']."</td></tr>";
+                $errors['admin'] = $mod_strings['LBL_NON_ADMIN_ERROR_MSG'];
             }
 
         }
@@ -990,4 +1084,81 @@ function write_mail_merge_log_entry($campaign_id,$pl_row) {
     }
 
 
-?>
+function filterFieldsFromBeans($beans)
+{
+    global $app_strings;
+    $formattedBeans = array();
+    foreach($beans as $b)
+    {
+        $formattedFields = array();
+//bug: 47574 - make sure, that webtolead_email1 field has same required attribute as email1 field
+        if(isset($b->field_defs['webtolead_email1']) && isset($b->field_defs['email1']) && isset($b->field_defs['email1']['required'])){
+            $b->field_defs['webtolead_email1']['required'] = $b->field_defs['email1']['required'];
+        }
+
+        foreach($b->field_defs as $field_def)
+        {
+            $email_fields = false;
+            if($field_def['name']== 'email1' || $field_def['name']== 'email2')
+            {
+                $email_fields = true;
+            }
+            if($field_def['name']!= 'account_name'){
+                if( ( $field_def['type'] == 'relate' && empty($field_def['custom_type']) )
+                    || $field_def['type'] == 'assigned_user_name' || $field_def['type'] =='link' || $field_def['type'] =='function'
+                    || (isset($field_def['source'])  && $field_def['source']=='non-db' && !$email_fields) || $field_def['type'] == 'id')
+                {
+                    continue;
+                }
+            }
+            if($field_def['name']== 'deleted' || $field_def['name']=='converted' || $field_def['name']=='date_entered'
+                || $field_def['name']== 'date_modified' || $field_def['name']=='modified_user_id'
+                || $field_def['name']=='assigned_user_id' || $field_def['name']=='created_by'
+                || $field_def['name']=='team_id')
+            {
+                continue;
+            }
+
+            //If the field is hidden in the studio settings, then do not show
+            if(isset($field_def['studio']) && isset($field_def['studio']['editview']) && $field_def['studio']['editview']=== false )
+            {
+                continue;
+            }
+
+
+            $field_def['vname'] = preg_replace('/:$/','',translate($field_def['vname'], $b->module_dir));
+
+            //$cols_name = "{'".$field_def['vname']."'}";
+            $col_arr = array();
+            if((isset($field_def['required']) && $field_def['required'] != null && $field_def['required'] != 0)
+                || $field_def['name']=='last_name'
+            ){
+                $cols_name=$field_def['vname'].' '.$app_strings['LBL_REQUIRED_SYMBOL'];
+                $col_arr[0]=$cols_name;
+                $col_arr[1]=$field_def['name'];
+                $col_arr[2]=true;
+            }
+            else{
+                $cols_name=$field_def['vname'];
+                $col_arr[0]=$cols_name;
+                $col_arr[1]=$field_def['name'];
+            }
+            if (! in_array($cols_name, $formattedFields))
+            {
+                array_push($formattedFields,$col_arr);
+            }
+        }
+
+        $holder = new stdClass();
+        $holder->name = $b->object_name;
+        $holder->fields = $formattedFields;
+        $holder->moduleKnownAs = translate($b->module_name,'LBL_MODULE_NAME');
+        $holder->moduleDir = $b->module_dir;
+        $holder->moduleName = $b->module_name;
+        $formattedBeans[] = $holder;
+
+    }
+    return $formattedBeans;
+
+}
+

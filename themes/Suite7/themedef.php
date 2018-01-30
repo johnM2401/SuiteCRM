@@ -43,7 +43,7 @@ $themedef = array(
     'name'  => "Suite 7",
     'description' => "SuiteCRM 7.0 Theme",
     'version' => array(
-        'regex_matches' => array('6\.*.*'),
+        'regex_matches' => array('^7\.[0-8][^\d]'),
         ),
     'group_tabs' => true,
     'classic' => true,
@@ -132,6 +132,17 @@ $themedef = array(
             'vname' => 'LBL_COLOUR_ADMIN_DASHHEAD',
             'type' => 'colour',
             'default' => '#777777'
+        ),
+
+        'suggestion_popup_from' => array(
+            'vname' => 'LBL_SUGGESTION_POPUP_FROM',
+            'type' => 'colour',
+            'default' => '#333333'
+        ),
+        'suggestion_popup_to' => array(
+            'vname' => 'LBL_SUGGESTION_POPUP_TO',
+            'type' => 'colour',
+            'default' => '#222222'
         ),
     )
 

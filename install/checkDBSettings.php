@@ -93,7 +93,7 @@ function checkDBSettings($silent=false) {
 
         $dbconfig = array(
                 "db_host_name" => $_SESSION['setup_db_host_name'],
-                "db_host_instance" => $_SESSION['setup_db_host_instance'],
+                "db_host_instance" => isset($_SESSION['setup_db_host_instance']) ? $_SESSION['setup_db_host_instance'] : null,
         );
 
         if(!empty($_SESSION['setup_db_port_num'])) {
@@ -108,10 +108,24 @@ function checkDBSettings($silent=false) {
             $dbconfig["db_name"] = $_SESSION['setup_db_database_name'];
         }
 
-        // Bug 29855 - Check to see if given db name is valid
-        if (preg_match("![\"'*/\\?:<>-]+!i", $_SESSION['setup_db_database_name']) ) {
-            $errors['ERR_DB_MSSQL_DB_NAME'] = $mod_strings['ERR_DB_MSSQL_DB_NAME_INVALID'];
-            installLog("ERROR::  {$errors['ERR_DB_MSSQL_DB_NAME']}");
+        // check database name validation in different database types (default is mssql)
+        switch (strtolower($db->dbType)) {
+
+            case 'mysql':
+                if (preg_match("![/\\.]+!i", $_SESSION['setup_db_database_name']) ) {
+                    $errors['ERR_DB_MYSQL_DB_NAME'] = $mod_strings['ERR_DB_MYSQL_DB_NAME_INVALID'];
+                    installLog("ERROR::  {$errors['ERR_DB_MYSQL_DB_NAME']}");
+                }
+                break;
+
+            case 'mssql':
+            default:
+                // Bug 29855 - Check to see if given db name is valid
+                if (preg_match("![\"'*/\\?:<>-]+!i", $_SESSION['setup_db_database_name']) ) {
+                    $errors['ERR_DB_MSSQL_DB_NAME'] = $mod_strings['ERR_DB_MSSQL_DB_NAME_INVALID'];
+                    installLog("ERROR::  {$errors['ERR_DB_MSSQL_DB_NAME']}");
+                }
+                break;
         }
 
         // test the account that will talk to the db if we're not creating it
@@ -132,7 +146,7 @@ function checkDBSettings($silent=false) {
         }
 
         // privileged account tests
-        if( empty($_SESSION['setup_db_admin_user_name']) ){
+        else if( empty($_SESSION['setup_db_admin_user_name']) ){
             $errors['ERR_DB_PRIV_USER'] = $mod_strings['ERR_DB_PRIV_USER'];
             installLog("ERROR:: {$errors['ERR_DB_PRIV_USER']}");
         } else {

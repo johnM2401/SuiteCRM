@@ -30,15 +30,21 @@ class AOW_WorkFlowController extends SugarController {
     protected function action_getModuleFields()
     {
         if (!empty($_REQUEST['aow_module']) && $_REQUEST['aow_module'] != '') {
-            if(isset($_REQUEST['rel_field']) &&  $_REQUEST['rel_field'] != ''){
-                $module = getRelatedModule($_REQUEST['aow_module'],$_REQUEST['rel_field']);
+            if (isset($_REQUEST['rel_field']) && $_REQUEST['rel_field'] != '') {
+                $module = getRelatedModule($_REQUEST['aow_module'], $_REQUEST['rel_field']);
             } else {
                 $module = $_REQUEST['aow_module'];
             }
-            echo getModuleFields($module,$_REQUEST['view'],$_REQUEST['aow_value']);
+            $override = array();
+            if (isset($_REQUEST['override']) && is_array($_REQUEST['override'])) {
+                $override = $_REQUEST['override'];
+            }
+            $view = isset($_REQUEST['view']) ? $_REQUEST['view'] : 'EditView';
+            $value = isset($_REQUEST['aow_value']) ? $_REQUEST['aow_value'] : '';
+
+            echo getModuleFields($module, $view, $value, array(), $override);
         }
         die;
-
     }
 
     protected function action_getRelatedModule()
@@ -49,7 +55,7 @@ class AOW_WorkFlowController extends SugarController {
             } else {
                 $module = $_REQUEST['aow_module'];
             }
-            echo $module;
+            echo htmlspecialchars($module);
         }
         die;
 
@@ -93,48 +99,51 @@ class AOW_WorkFlowController extends SugarController {
         $focus = new $beanList[$module];
         $vardef = $focus->getFieldDefinition($fieldname);
 
-        switch($vardef['type']) {
-            case 'double':
-            case 'decimal':
-            case 'float':
-            case 'currency':
-                $valid_opp = array('Equal_To','Not_Equal_To','Greater_Than','Less_Than','Greater_Than_or_Equal_To','Less_Than_or_Equal_To');
-                break;
-            case 'uint':
-            case 'ulong':
-            case 'long':
-            case 'short':
-            case 'tinyint':
-            case 'int':
-                $valid_opp = array('Equal_To','Not_Equal_To','Greater_Than','Less_Than','Greater_Than_or_Equal_To','Less_Than_or_Equal_To');
-                break;
-            case 'date':
-            case 'datetime':
-            case 'datetimecombo':
-                $valid_opp = array('Equal_To','Not_Equal_To','Greater_Than','Less_Than','Greater_Than_or_Equal_To','Less_Than_or_Equal_To');
-                break;
-            case 'enum':
-            case 'multienum':
-                $valid_opp = array('Equal_To','Not_Equal_To');
-                break;
-            default:
-                $valid_opp = array('Equal_To','Not_Equal_To');
-                break;
-        }
+        if($vardef){
 
-        foreach($app_list_strings['aow_operator_list'] as $key => $keyValue){
-            if(!in_array($key, $valid_opp)){
-                unset($app_list_strings['aow_operator_list'][$key]);
+            switch($vardef['type']) {
+                case 'double':
+                case 'decimal':
+                case 'float':
+                case 'currency':
+                $valid_opp = array('Equal_To','Not_Equal_To','Greater_Than','Less_Than','Greater_Than_or_Equal_To','Less_Than_or_Equal_To','is_null');
+                    break;
+                case 'uint':
+                case 'ulong':
+                case 'long':
+                case 'short':
+                case 'tinyint':
+                case 'int':
+                $valid_opp = array('Equal_To','Not_Equal_To','Greater_Than','Less_Than','Greater_Than_or_Equal_To','Less_Than_or_Equal_To','is_null');
+                    break;
+                case 'date':
+                case 'datetime':
+                case 'datetimecombo':
+                $valid_opp = array('Equal_To','Not_Equal_To','Greater_Than','Less_Than','Greater_Than_or_Equal_To','Less_Than_or_Equal_To','is_null');
+                    break;
+                case 'enum':
+                case 'multienum':
+                $valid_opp = array('Equal_To','Not_Equal_To','is_null');
+                    break;
+                default:
+                $valid_opp = array('Equal_To','Not_Equal_To','Contains', 'Starts_With', 'Ends_With','is_null');
+                    break;
             }
-        }
+
+            foreach($app_list_strings['aow_operator_list'] as $key => $keyValue){
+                if(!in_array($key, $valid_opp)){
+                    unset($app_list_strings['aow_operator_list'][$key]);
+                }
+            }
 
 
 
-        $app_list_strings['aow_operator_list'];
-        if($view == 'EditView'){
-            echo "<select type='text' style='width:178px;' name='$aow_field' id='$aow_field ' title='' tabindex='116'>". get_select_options_with_id($app_list_strings['aow_operator_list'], $value) ."</select>";
-        }else{
-            echo $app_list_strings['aow_operator_list'][$value];
+            $app_list_strings['aow_operator_list'];
+            if($view == 'EditView'){
+                echo "<select type='text' name='$aow_field' id='$aow_field ' title='' tabindex='116'>". get_select_options_with_id($app_list_strings['aow_operator_list'], $value) ."</select>";
+            }else{
+                echo $app_list_strings['aow_operator_list'][$value];
+            }
         }
         die;
 
@@ -207,7 +216,7 @@ class AOW_WorkFlowController extends SugarController {
         }
 
         if($view == 'EditView'){
-            echo "<select type='text' style='width:178px;' name='$aow_field' id='$aow_field' title='' tabindex='116'>". get_select_options_with_id($app_list_strings['aow_condition_type_list'], $value) ."</select>";
+            echo "<select type='text'  name='$aow_field' id='$aow_field' title='' tabindex='116'>". get_select_options_with_id($app_list_strings['aow_condition_type_list'], $value) ."</select>";
         }else{
             echo $app_list_strings['aow_condition_type_list'][$value];
         }
@@ -274,7 +283,7 @@ class AOW_WorkFlowController extends SugarController {
         }
 
         if($view == 'EditView'){
-            echo "<select type='text' style='width:178px;' name='$aow_field' id='$aow_field' title='' tabindex='116'>". get_select_options_with_id($app_list_strings['aow_action_type_list'], $value) ."</select>";
+            echo "<select type='text'  name='$aow_field' id='$aow_field' title='' tabindex='116'>". get_select_options_with_id($app_list_strings['aow_action_type_list'], $value) ."</select>";
         }else{
             echo $app_list_strings['aow_action_type_list'][$value];
         }
@@ -303,7 +312,7 @@ class AOW_WorkFlowController extends SugarController {
             case 'Field':
                 if(isset($_REQUEST['alt_module']) && $_REQUEST['alt_module'] != '') $module = $_REQUEST['alt_module'];
                 if($view == 'EditView'){
-                    echo "<select type='text' style='width:178px;' name='$aow_field' id='$aow_field ' title='' tabindex='116'>". getModuleFields($module, $view, $value, getValidFieldsTypes($module, $fieldname)) ."</select>";
+                    echo "<select type='text'  name='$aow_field' id='$aow_field ' title='' tabindex='116'>". getModuleFields($module, $view, $value, getValidFieldsTypes($module, $fieldname)) ."</select>";
                 }else{
                     echo getModuleFields($module, $view, $value);
                 }
@@ -346,7 +355,7 @@ class AOW_WorkFlowController extends SugarController {
                 $valid_fields = getValidFieldsTypes($module, $fieldname);
                 if(isset($_REQUEST['alt_module']) && $_REQUEST['alt_module'] != '') $module = $_REQUEST['alt_module'];
                 if($view == 'EditView'){
-                    echo "<select type='text' style='width:178px;' name='$aow_field' id='$aow_field ' title='' tabindex='116'>". getModuleFields($module, $view, $value, $valid_fields) ."</select>";
+                    echo "<select type='text'  name='$aow_field' id='$aow_field ' title='' tabindex='116'>". getModuleFields($module, $view, $value, $valid_fields) ."</select>";
                 }else{
                     echo getModuleFields($module, $view, $value);
                 }
@@ -397,7 +406,7 @@ class AOW_WorkFlowController extends SugarController {
             case 'Field':
                 if(isset($_REQUEST['alt_module']) && $_REQUEST['alt_module'] != '') $module = $_REQUEST['alt_module'];
                 if($view == 'EditView'){
-                    echo "<select type='text' style='width:178px;' name='$aow_field' id='$aow_field ' title='' tabindex='116'>". getModuleFields($module, $view, $value) ."</select>";
+                    echo "<select type='text'  name='$aow_field' id='$aow_field ' title='' tabindex='116'>". getModuleFields($module, $view, $value) ."</select>";
                 }else{
                     echo getModuleFields($module, $view, $value);
                 }
@@ -447,7 +456,7 @@ class AOW_WorkFlowController extends SugarController {
         }
 
         if($view == 'EditView'){
-            echo "<select type='text' style='width:178px;' name='$aow_field' id='$aow_field' title='' tabindex='116'>". get_select_options_with_id($app_list_strings['aow_rel_action_type_list'], $value) ."</select>";
+            echo "<select type='text'  name='$aow_field' id='$aow_field' title='' tabindex='116'>". get_select_options_with_id($app_list_strings['aow_rel_action_type_list'], $value) ."</select>";
         }else{
             echo $app_list_strings['aow_rel_action_type_list'][$value];
         }
@@ -520,7 +529,7 @@ class AOW_WorkFlowController extends SugarController {
             case 'Related Field':
                 $rel_field_list = getRelatedEmailableFields($module);
                 if($view == 'EditView'){
-                    echo "<select type='text' style='width:178px;' name='$aow_field' id='$aow_field' title='' tabindex='116'>". get_select_options_with_id($rel_field_list, $value) ."</select>";
+                    echo "<select type='text'  name='$aow_field' id='$aow_field' title='' tabindex='116'>". get_select_options_with_id($rel_field_list, $value) ."</select>";
                 }else{
                     echo $rel_field_list[$value];
                 }

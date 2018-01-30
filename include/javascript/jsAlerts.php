@@ -44,7 +44,7 @@ require_once("include/utils/db_utils.php");
 class jsAlerts{
 	var $script;
 
-	function jsAlerts(){
+    public function __construct() {
 		global $app_strings;
 		$this->script .= <<<EOQ
 		if (!alertsTimeoutId) {
@@ -53,15 +53,23 @@ class jsAlerts{
 
 EOQ;
 		$this->addActivities();
+		Reminder::addNotifications($this);
 		if(!empty($GLOBALS['sugar_config']['enable_timeout_alerts'])){
 			$this->addAlert($app_strings['ERROR_JS_ALERT_SYSTEM_CLASS'], $app_strings['ERROR_JS_ALERT_TIMEOUT_TITLE'],'', $app_strings['ERROR_JS_ALERT_TIMEOUT_MSG_1'], (session_cache_expire() - 2) * 60 );
 			$this->addAlert($app_strings['ERROR_JS_ALERT_SYSTEM_CLASS'], $app_strings['ERROR_JS_ALERT_TIMEOUT_TITLE'],'', $app_strings['ERROR_JS_ALERT_TIMEOUT_MSG_2'], (session_cache_expire()) * 60 , 'index.php');
 		}
 	}
-	function addAlert($type, $name, $subtitle, $description, $countdown, $redirect='')
+
+    function addAlert($type, $name, $subtitle, $description, $countdown, $redirect = '')
     {
-        $this->script .= 'addAlert(' . json_encode($type) .',' . json_encode($name). ',' . json_encode($subtitle). ','. json_encode(str_replace(array("\r", "\n"), array('','<br>'),$description)) . ',' . $countdown . ','.json_encode($redirect).')' . "\n";
-	}
+        if ($countdown < 0) {
+            $countdown = 0;
+        }
+        $script = 'addAlert(' . json_encode($type) . ',' . json_encode($name) . ',' . json_encode($subtitle)
+            . ',' . json_encode(str_replace(array("\r", "\n"), array('', '<br>'), $description))
+            . ',' . $countdown . ',' . json_encode($redirect) . ');' . "\n";
+        $this->script .= $script;
+    }
 
     function getScript()
     {
@@ -97,7 +105,7 @@ EOQ;
 
 		// cn: get a boundary limiter
 		$dateTimeMax = $timedate->getNow()->modify("+{$app_list_strings['reminder_max_time']} seconds")->asDb();
-		$dateTimeNow = $timedate->nowDb();
+    $dateTimeNow = $timedate->getNow()->modify("-60 seconds")->asDb();
 
 		global $db;
 		$dateTimeNow = $db->convert($db->quoted($dateTimeNow), 'datetime');
@@ -196,7 +204,7 @@ EOQ;
             $callDescription = $row['description'] ."\n" .$app_strings['MSG_JS_ALERT_MTG_REMINDER_STATUS'] . $row['status'] ."\n". $app_strings['MSG_JS_ALERT_MTG_REMINDER_RELATED_TO']. $relatedToCall;
 
 
-            $this->addAlert($app_strings['MSG_JS_ALERT_MTG_REMINDER_CALL'], $row['name'], $app_strings['MSG_JS_ALERT_MTG_REMINDER_TIME'].$timedate->to_display_date_time($db->fromConvert($row['date_start'], 'datetime')) , $app_strings['MSG_JS_ALERT_MTG_REMINDER_DESC'].$callDescription. $app_strings['MSG_JS_ALERT_MTG_REMINDER_CALL_MSG'] , $timeStart - strtotime($alertDateTimeNow), 'index.php?action=DetailView&module=Calls&record=' . $row['id']);
+            $this->addAlert($app_strings['MSG_JS_ALERT_MTG_REMINDER_CALL'], $row['name'], $app_strings['MSG_JS_ALERT_MTG_REMINDER_TIME'].$timedate->to_display_date_time($db->fromConvert($row['date_start'], 'datetime')) , $app_strings['MSG_JS_ALERT_MTG_REMINDER_DESC'].$callDescription , $timeStart - strtotime($alertDateTimeNow), 'index.php?action=DetailView&module=Calls&record=' . $row['id']);
 		}
 	}
 

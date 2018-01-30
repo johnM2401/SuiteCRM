@@ -141,6 +141,9 @@ class UserViewHelper {
         $edit_self = $current_user->id == $this->bean->id;
         $admin_edit_self = is_admin($current_user) && $edit_self;
 
+        if(isset($_REQUEST['showEmailSettingsPopup']) && $_REQUEST['showEmailSettingsPopup']) {
+            $this->ss->assign('showEmailSettingsPopup', true);
+        }
 
         $this->ss->assign('IS_FOCUS_ADMIN', is_admin($this->bean));
 
@@ -422,10 +425,16 @@ class UserViewHelper {
 	    if(empty($email_reminder_time)){
 		    $email_reminder_time = -1;
 	    }
+		
         $this->ss->assign("REMINDER_TIME_OPTIONS", $app_list_strings['reminder_time_options']);
         $this->ss->assign("EMAIL_REMINDER_TIME_OPTIONS", $app_list_strings['reminder_time_options']);
 	    $this->ss->assign("REMINDER_TIME", $reminder_time);
 	    $this->ss->assign("EMAIL_REMINDER_TIME", $email_reminder_time);
+
+        $remindersDefaultPreferences = Reminder::loadRemindersDefaultValuesData();
+		$this->ss->assign("REMINDER_CHECKED", $remindersDefaultPreferences['popup']);
+	    $this->ss->assign("EMAIL_REMINDER_CHECKED", $remindersDefaultPreferences['email']);
+		
 	    $this->ss->assign("REMINDER_TABINDEX", "12");
 	    $publish_key = $this->bean->getPreference('calendar_publish_key' );
         $this->ss->assign('CALENDAR_PUBLISH_KEY', $publish_key);
@@ -699,6 +708,12 @@ class UserViewHelper {
             $this->ss->assign('EMAIL_LINK_TYPE', $app_list_strings['dom_email_link_type'][$raw_email_link_type]);
         }
 
+        $rawEditorType = $this->bean->getEditorType();
+        if ( $this->viewType == 'EditView' ) {
+            $this->ss->assign('EDITOR_TYPE', get_select_options_with_id($app_list_strings['dom_editor_type'], $rawEditorType));
+        } else {
+            $this->ss->assign('EDITOR_TYPE', $app_list_strings['dom_editor_type'][$rawEditorType]);
+        }
         /////	END EMAIL OPTIONS
         ///////////////////////////////////////////////////////////////////////////////
 
@@ -706,7 +721,6 @@ class UserViewHelper {
         /////////////////////////////////////////////
         /// Handle email account selections for users
         /////////////////////////////////////////////
-        $hide_if_can_use_default = true;
         if( !($this->usertype=='GROUP' || $this->usertype=='PORTAL_ONLY') ) {
             // email smtp
             $systemOutboundEmail = new OutboundEmail();
@@ -745,8 +759,6 @@ class UserViewHelper {
             $this->ss->assign('MAIL_SMTPPORT',$mail_smtpport);
             $this->ss->assign('MAIL_SMTPSSL',$mail_smtpssl);
         }
-        $this->ss->assign('HIDE_IF_CAN_USE_DEFAULT_OUTBOUND',$hide_if_can_use_default );
-
     }
 
 

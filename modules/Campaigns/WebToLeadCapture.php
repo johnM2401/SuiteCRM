@@ -63,6 +63,10 @@ if (isset($_POST['campaign_id']) && !empty($_POST['campaign_id'])) {
 	    $_POST['client_id_address'] = query_client_ip();
 		$campaign_id=$_POST['campaign_id'];
 		$campaign = new Campaign();
+        $campaign_id = $campaign->db->quote($_POST['campaign_id']);
+        if(!isValidId($campaign_id)) {
+			throw new RuntimeException('Invalid ID requested in Lead Capture');
+    	}
 		$camp_query  = "select name,id from campaigns where id='$campaign_id'";
 		$camp_query .= " and deleted=0";
         $camp_result=$campaign->db->query($camp_query);
@@ -118,7 +122,7 @@ if (isset($_POST['campaign_id']) && !empty($_POST['campaign_id'])) {
 				
 	            //create campaign log
 	            $camplog = new CampaignLog();
-	            $camplog->campaign_id  = $_POST['campaign_id'];
+	            $camplog->campaign_id  = $campaign_id;
 	            $camplog->related_id   = $lead->id;
 	            $camplog->related_type = $lead->module_dir;
 	            $camplog->activity_type = "lead";
@@ -231,12 +235,15 @@ if (isset($_POST['campaign_id']) && !empty($_POST['campaign_id'])) {
     				echo '</body></html>';
     			}
 				else{
-    				header("Location: {$redirect_url}");
+    				$header_URL = "Location: {$redirect_url}";
+
+					SugarApplication::headerRedirect($header_URL);
+
     				die();
 			    }
 			}
 			else{
-				echo $mod_strings['LBL_THANKS_FOR_SUBMITTING_LEAD'];
+				echo $mod_strings['LBL_THANKS_FOR_SUBMITTING'];
 			}
 			sugar_cleanup();
 			// die to keep code from running into redirect case below
@@ -255,7 +262,8 @@ if (!empty($_POST['redirect'])) {
     	echo '</body></html>';
     }
     else{
-    	header("Location: {$_POST['redirect']}");
+    	$header_URL = "Location: {$_POST['redirect']}";
+		SugarApplication::headerRedirect($header_URL);
     	die();
     }
 }

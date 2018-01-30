@@ -1,10 +1,11 @@
 <?php
-/*********************************************************************************
+/**
+ *
  * SugarCRM Community Edition is a customer relationship management program developed by
  * SugarCRM, Inc. Copyright (C) 2004-2013 SugarCRM Inc.
-
- * SuiteCRM is an extension to SugarCRM Community Edition developed by Salesagility Ltd.
- * Copyright (C) 2011 - 2014 Salesagility Ltd.
+ *
+ * SuiteCRM is an extension to SugarCRM Community Edition developed by SalesAgility Ltd.
+ * Copyright (C) 2011 - 2017 SalesAgility Ltd.
  *
  * This program is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License version 3 as published by the
@@ -15,7 +16,7 @@
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
+ * FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
  * details.
  *
  * You should have received a copy of the GNU Affero General Public License along with
@@ -33,10 +34,13 @@
  * In accordance with Section 7(b) of the GNU Affero General Public License version 3,
  * these Appropriate Legal Notices must retain the display of the "Powered by
  * SugarCRM" logo and "Supercharged by SuiteCRM" logo. If the display of the logos is not
- * reasonably feasible for  technical reasons, the Appropriate Legal Notices must
- * display the words  "Powered by SugarCRM" and "Supercharged by SuiteCRM".
- ********************************************************************************/
+ * reasonably feasible for technical reasons, the Appropriate Legal Notices must
+ * display the words "Powered by SugarCRM" and "Supercharged by SuiteCRM".
+ */
 
+if (!defined('sugarEntry') || !sugarEntry) {
+    die('Not A Valid Entry Point');
+}
 /**
  * Language files management
  * @api
@@ -49,7 +53,7 @@ class LanguageManager
 	 * @param module - the name of the module we are working with
 	 * @param templates - an array of templates this module uses
 	 */
-	function createLanguageFile($module , $templates=array('default'), $refresh = false){
+	static function createLanguageFile($module , $templates=array('default'), $refresh = false){
 		global $mod_strings, $current_language;
 		if(inDeveloperMode() || !empty($_SESSION['developerMode'])){
         	$refresh = true;
@@ -74,7 +78,7 @@ class LanguageManager
 	 * @param lang - current language this module use
 	 * @param loaded_mod_strings - the string that we will add the module template language  into
 	 */
-	function loadTemplateLanguage($module , $templates , $lang, $loaded_mod_strings){
+	static function loadTemplateLanguage($module , $templates , $lang, $loaded_mod_strings){
 		$templates = array_reverse($templates);
 		foreach($templates as $template){
 			$temp = LanguageManager::addTemplate($module,$lang, $template);
@@ -83,7 +87,7 @@ class LanguageManager
 		return $loaded_mod_strings;
 	}
 
-	function addTemplate($module, $lang, $template){
+	static function addTemplate($module, $lang, $template){
 		if($template == 'default')$template = 'basic';
 		$templates = array();
 		$fields = array();
@@ -105,7 +109,7 @@ class LanguageManager
 		}
 	}
 
-	function saveCache($module,$lang, $loaded_mod_strings, $additonal_objects= array()){
+	static function saveCache($module,$lang, $loaded_mod_strings, $additonal_objects= array()){
 		if(empty($lang))
 			$lang = $GLOBALS['sugar_config']['default_language'];
 
@@ -124,7 +128,7 @@ class LanguageManager
 	 *                      clear language cache for all modules.
 	 * @param string lang the name of the object we are clearing this is for sugar_cache
 	 */
-	function clearLanguageCache($module_dir = '', $lang = ''){
+	static function clearLanguageCache($module_dir = '', $lang = ''){
 		if(empty($lang)) {
 			$languages = array_keys($GLOBALS['sugar_config']['languages']);
 		} else {
@@ -155,7 +159,8 @@ class LanguageManager
 	 * @param string module_dir the module_dir to clear
 	 * @param string lang the name of the language file we are clearing this is for sugar_cache
 	 */
-	function _clearCache($module_dir = '', $lang){
+	private static function _clearCache($module_dir, $lang = null)
+    {
 		if(!empty($module_dir) && !empty($lang)){
 			$file = sugar_cached('modules/').$module_dir.'/language/'.$lang.'.lang.php';
 			if(file_exists($file)){
@@ -174,7 +179,7 @@ class LanguageManager
 	 * @param string $lang the given language we wish to load
 	 * @param array $additional_search_paths an array which allows a consumer to pass in additional vardef locations to search
 	 */
-	function refreshLanguage($module, $lang, $loaded_mod_strings = array(), $additional_search_paths = null){
+	static function refreshLanguage($module, $lang, $loaded_mod_strings = array(), $additional_search_paths = null){
 		// Some of the vardefs do not correctly define dictionary as global.  Declare it first.
 		$lang_paths = array(
 					'modules/'.$module.'/language/'.$lang.'.lang.php',
@@ -226,7 +231,7 @@ class LanguageManager
 			LanguageManager::saveCache($module, $lang, $loaded_mod_strings);
 	}
 
-	function loadModuleLanguage($module, $lang, $refresh=false){
+	static function loadModuleLanguage($module, $lang, $refresh=false){
 		//here check if the cache file exists, if it does then load it, if it doesn't
 		//then call refreshVardef
 		//if either our session or the system is set to developerMode then refresh is set to true
